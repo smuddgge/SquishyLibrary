@@ -183,7 +183,7 @@ public class Logger implements Replicable<Logger> {
     }
 
     public @NotNull Logger info(@NotNull String message) {
-        this.logger.log(Level.INFO, ConsoleColor.parse("&7" + this.getPrefixFormatted() + message));
+        this.logger.info(ConsoleColor.parse("&7" + this.getPrefixFormatted() + message));
         return this;
     }
 
@@ -192,7 +192,7 @@ public class Logger implements Replicable<Logger> {
         // Check if debug forwarding is enabled.
         // Debug forwarding is where debugs should be sent though the info level.
         if (debugForwarding && this.logger.isLoggable(Level.DEBUG)) {
-            this.logger.log(Level.INFO, ConsoleColor.parse("&7" + this.getPrefixFormatted() + message));
+            this.logger.info(ConsoleColor.parse("&7" + this.getPrefixFormatted() + message));
             return this;
         }
 
