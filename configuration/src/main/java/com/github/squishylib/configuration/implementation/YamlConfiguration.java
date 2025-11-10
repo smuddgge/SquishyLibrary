@@ -23,17 +23,12 @@ import com.github.squishylib.configuration.Configuration;
 import com.github.squishylib.configuration.ConfigurationException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.yaml.snakeyaml.DumperOptions;
-import org.yaml.snakeyaml.Yaml;
+import org.snakeyaml.engine.v2.api.*;
+import org.snakeyaml.engine.v2.nodes.Node;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.nio.file.Files;
 import java.util.*;
-
-import static org.yaml.snakeyaml.DumperOptions.FlowStyle.BLOCK;
 
 public class YamlConfiguration extends MemoryConfigurationSection implements Configuration {
 
@@ -151,8 +146,9 @@ public class YamlConfiguration extends MemoryConfigurationSection implements Con
             try (InputStream inputStream = Files.newInputStream(this.file.toPath())) {
 
                 // Replace the data map with the content.
-                final Yaml yaml = new Yaml();
-                final Map<String, Object> map = yaml.load(inputStream);
+                LoadSettings loadSettings = LoadSettings.builder().build();
+                Load loader = new Load(loadSettings);
+                Map<String, Object> map = (Map<String, Object>) loader.loadFromInputStream(inputStream);
 
                 this.data.clear();
                 this.data.putAll(map == null ? new LinkedHashMap<>() : map);
@@ -190,24 +186,46 @@ public class YamlConfiguration extends MemoryConfigurationSection implements Con
         future.completeAsync(() -> {
 
             // Set up the yaml options.
-            DumperOptions dumperOptions = new DumperOptions();
-            dumperOptions.setPrettyFlow(true);
-            dumperOptions.setDefaultFlowStyle(BLOCK);
+            DumpSettings dumpSettings = DumpSettings.builder()
+                .setDefaultFlowStyle(org.snakeyaml.engine.v2.common.FlowStyle.BLOCK) // BLOCK style
+                .setDumpComments(true)
+                .build();
+            Dump dumper = new Dump(dumpSettings);
 
-            // Create the yaml object.
-            Yaml yaml = new Yaml(dumperOptions);
+            try (FileWriter fileWriter = new FileWriter(file)) {
+                StreamDataWriter writer = new StreamDataWriter() {
+                    @Override
+                    public void write(String s) {
+                        try {
+                            fileWriter.write(s);
+                        } catch (IOException exception) {
+                            throw new ConfigurationException(
+                                exception,
+                                "YamlConfiguration.saveAsync()1",
+                                "Could not write the data into the file."
+                            );
+                        }
+                    }
 
-            try {
-
-                // Write to the file.
-                FileWriter writer = new FileWriter(this.file);
-                yaml.dump(this.data, writer);
+                    @Override
+                    public void write(String s, int i, int i1) {
+                        try {
+                            fileWriter.write(s, i, i1);
+                        } catch (IOException exception) {
+                            throw new ConfigurationException(
+                                exception,
+                                "YamlConfiguration.saveAsync()2",
+                                "Could not write the data into the file."
+                            );
+                        }
+                    }
+                };
+                dumper.dump(data, writer);
                 return true;
-
             } catch (IOException exception) {
                 throw new ConfigurationException(
                     exception,
-                    "YamlConfiguration.saveAsync()",
+                    "YamlConfiguration.saveAsync()3",
                     "Could not write the data into the file."
                 );
             }
